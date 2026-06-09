@@ -15,60 +15,57 @@ interface FinanceDao {
     @Update
     suspend fun updateAccount(account: Account)
 
+    @Query("UPDATE accounts SET balance = balance + :amount, lastUpdated = :timestamp WHERE id = :accountId")
+    suspend fun updateAccountBalanceAtomic(accountId: Int, amount: Double, timestamp: Long)
+
     @Delete
     suspend fun deleteAccount(account: Account)
-
-    @Query("SELECT * FROM accounts WHERE id = :id")
-    suspend fun getAccountById(id: Int): Account?
 
     // Expenses
     @Query("SELECT * FROM expenses ORDER BY date DESC")
     fun getAllExpenses(): Flow<List<Expense>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertExpense(expense: Expense)
+    suspend fun insertExpense(expense: Expense): Long
 
     @Update
     suspend fun updateExpense(expense: Expense)
 
+    @Query("UPDATE expenses SET amount = (SELECT SUM(amount) FROM finance_transactions WHERE parentId = :expenseId AND parentType = 'EXPENSE'), date = :timestamp WHERE id = :expenseId")
+    suspend fun refreshExpenseTotal(expenseId: Int, timestamp: Long)
+
     @Delete
     suspend fun deleteExpense(expense: Expense)
-
-    @Query("DELETE FROM expenses WHERE id = :id")
-    suspend fun deleteExpenseById(id: Int)
 
     // Incomes
     @Query("SELECT * FROM incomes ORDER BY date DESC")
     fun getAllIncomes(): Flow<List<Income>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertIncome(income: Income)
+    suspend fun insertIncome(income: Income): Long
 
     @Update
     suspend fun updateIncome(income: Income)
 
+    @Query("UPDATE incomes SET amount = (SELECT SUM(amount) FROM finance_transactions WHERE parentId = :incomeId AND parentType = 'INCOME'), date = :timestamp WHERE id = :incomeId")
+    suspend fun refreshIncomeTotal(incomeId: Int, timestamp: Long)
+
     @Delete
     suspend fun deleteIncome(income: Income)
 
-    @Query("DELETE FROM incomes WHERE id = :id")
-    suspend fun deleteIncomeById(id: Int)
+    // Transactions
+    @Query("SELECT * FROM finance_transactions WHERE parentId = :parentId AND parentType = :parentType ORDER BY date DESC")
+    fun getTransactionsForParent(parentId: Int, parentType: String): Flow<List<FinanceTransaction>>
 
-    // Bulk actions for backup / restore
-    @Query("DELETE FROM accounts")
-    suspend fun deleteAllAccounts()
-
-    @Query("DELETE FROM expenses")
-    suspend fun deleteAllExpenses()
-
-    @Query("DELETE FROM incomes")
-    suspend fun deleteAllIncomes()
+    @Query("SELECT * FROM finance_transactions ORDER BY date DESC")
+    fun getAllTransactions(): Flow<List<FinanceTransaction>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAccounts(accounts: List<Account>)
+    suspend fun insertTransaction(transaction: FinanceTransaction)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertExpenses(expenses: List<Expense>)
+    @Delete
+    suspend fun deleteTransaction(transaction: FinanceTransaction)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertIncomes(incomes: List<Income>)
+    @Query("DELETE FROM finance_transactions WHERE parentId = :parentId AND parentType = :parentType")
+    suspend fun deleteTransactionsByParent(parentId: Int, parentType: String)
 }

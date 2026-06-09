@@ -5,11 +5,12 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
-@Database(entities = [Account::class, Expense::class, Income::class], version = 2, exportSchema = false)
+@Database(
+    entities = [Account::class, Expense::class, Income::class, FinanceTransaction::class],
+    version = 3,
+    exportSchema = false
+)
 abstract class FinanceDatabase : RoomDatabase() {
     abstract fun financeDao(): FinanceDao
 
@@ -28,15 +29,12 @@ abstract class FinanceDatabase : RoomDatabase() {
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
-                        // Prepopulate database with screenshot accounts inside IO coroutine
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val dao = getDatabase(context).financeDao()
-                            dao.insertAccount(Account(id = 1, name = "القبوة", balance = 0.0))
-                            dao.insertAccount(Account(id = 2, name = "دقيق", balance = -7750000.0))
-                            dao.insertAccount(Account(id = 3, name = "اونور", balance = -37000.0))
-                            dao.insertAccount(Account(id = 4, name = "وجف", balance = 3798000.0))
-                            dao.insertAccount(Account(id = 5, name = "حطب 6", balance = 1105000.0))
-                        }
+                        // Prepopulate using raw SQL to avoid circular dependency
+                        db.execSQL("INSERT INTO accounts (id, name, balance, detail, phone, lastUpdated) VALUES (1, 'القبوة', 0.0, '', '', ${System.currentTimeMillis()})")
+                        db.execSQL("INSERT INTO accounts (id, name, balance, detail, phone, lastUpdated) VALUES (2, 'دقيق', -7750000.0, '', '', ${System.currentTimeMillis()})")
+                        db.execSQL("INSERT INTO accounts (id, name, balance, detail, phone, lastUpdated) VALUES (3, 'اونور', -37000.0, '', '', ${System.currentTimeMillis()})")
+                        db.execSQL("INSERT INTO accounts (id, name, balance, detail, phone, lastUpdated) VALUES (4, 'وجف', 3798000.0, '', '', ${System.currentTimeMillis()})")
+                        db.execSQL("INSERT INTO accounts (id, name, balance, detail, phone, lastUpdated) VALUES (5, 'حطب 6', 1105000.0, '', '', ${System.currentTimeMillis()})")
                     }
                 })
                 .build()

@@ -17,6 +17,7 @@ data class BackupPayload(
     val accounts: List<Account>,
     val expenses: List<Expense>,
     val incomes: List<Income>,
+    val transactions: List<FinanceTransaction> = emptyList(),
     val backupTime: Long = System.currentTimeMillis(),
     val deviceName: String = android.os.Build.MODEL
 )
@@ -33,8 +34,13 @@ object GoogleDriveHelper {
     /**
      * Serializes local data to a JSON string.
      */
-    fun serializeData(accounts: List<Account>, expenses: List<Expense>, incomes: List<Income>): String {
-        val payload = BackupPayload(accounts, expenses, incomes)
+    fun serializeData(
+        accounts: List<Account>,
+        expenses: List<Expense>,
+        incomes: List<Income>,
+        transactions: List<FinanceTransaction>
+    ): String {
+        val payload = BackupPayload(accounts, expenses, incomes, transactions)
         return adapter.toJson(payload)
     }
 
@@ -52,18 +58,17 @@ object GoogleDriveHelper {
 
     /**
      * Backs up data to Google Drive.
-     * If the token is empty/simulated, saves to a mock cloud file (local cache shared preferences) 
-     * so that the user can immediately test backup/restore in the browser preview.
      */
     fun backupToDrive(
         context: Context,
         accounts: List<Account>,
         expenses: List<Expense>,
         incomes: List<Income>,
+        transactions: List<FinanceTransaction>,
         accessToken: String,
         onResult: (Boolean, String?) -> Unit
     ) {
-        val jsonContent = serializeData(accounts, expenses, incomes)
+        val jsonContent = serializeData(accounts, expenses, incomes, transactions)
         
         // Check for simulated/sandbox environment
         if (accessToken.isEmpty() || accessToken.startsWith("simulated_")) {
@@ -125,7 +130,6 @@ object GoogleDriveHelper {
                         }
                     } else {
                         // 3. Create a new file with POST metadata + media
-                        // First create metadata
                         val metadataUrl = "https://www.googleapis.com/drive/v3/files"
                         val metaJson = JSONObject().apply {
                             put("name", "ledger_app_backup.json")
