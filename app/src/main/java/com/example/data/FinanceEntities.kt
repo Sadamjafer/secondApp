@@ -1,8 +1,6 @@
 package com.example.data
 
 import androidx.room.Entity
-import androidx.room.ForeignKey
-import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "accounts")
@@ -19,7 +17,7 @@ data class Account(
 data class Expense(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,
-    val amount: Double = 0.0,
+    val amount: Double,
     val date: Long = System.currentTimeMillis(),
     val category: String = "عام",
     val notes: String = ""
@@ -29,21 +27,19 @@ data class Expense(
 data class Income(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,
-    val amount: Double = 0.0,
+    val amount: Double,
     val date: Long = System.currentTimeMillis(),
     val category: String = "عام",
     val notes: String = ""
 )
 
-@Entity(
-    tableName = "finance_transactions",
-    indices = [Index(value = ["parentId"])]
-)
-data class FinanceTransaction(
+@Entity(tableName = "safe_withdrawals")
+data class SafeWithdrawal(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val parentId: Int,       // ID الخاص بـ Expense أو Income أو Account
-    val parentType: String,  // "EXPENSE", "INCOME", "ACCOUNT"
     val amount: Double,
     val date: Long = System.currentTimeMillis(),
-    val note: String = ""
+    val purpose: String,
+    val notes: String = ""
 )
+
+

@@ -3,7 +3,12 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.*
+import com.example.data.Account
+import com.example.data.Expense
+import com.example.data.Income
+import com.example.data.SafeWithdrawal
+import com.example.data.FinanceDatabase
+import com.example.data.FinanceRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -15,50 +20,75 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     val allAccounts: StateFlow<List<Account>>
     val allExpenses: StateFlow<List<Expense>>
     val allIncomes: StateFlow<List<Income>>
-    val allTransactions: StateFlow<List<FinanceTransaction>>
+    val allWithdrawals: StateFlow<List<SafeWithdrawal>>
 
     init {
         val dao = FinanceDatabase.getDatabase(application).financeDao()
         repository = FinanceRepository(dao)
 
         allAccounts = repository.allAccounts
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
 
         allExpenses = repository.allExpenses
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
 
         allIncomes = repository.allIncomes
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
 
-        allTransactions = repository.allTransactions
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        allWithdrawals = repository.allWithdrawals
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
     }
 
     // Account operations
     fun addAccount(name: String, balance: Double = 0.0, detail: String = "", phone: String = "") {
         viewModelScope.launch {
-            repository.insertAccount(Account(name = name, balance = balance, detail = detail, phone = phone))
-        }
-    }
-
-    fun updateAccountBalance(account: Account, changeAmount: Double, note: String = "تعديل رصيد يدوي") {
-        viewModelScope.launch {
-            repository.updateAccountBalanceAtomic(account.id, changeAmount)
-            repository.insertTransaction(
-                FinanceTransaction(
-                    parentId = account.id,
-                    parentType = if (changeAmount >= 0) "ACCOUNT_IN" else "ACCOUNT_OUT",
-                    amount = kotlin.math.abs(changeAmount),
-                    date = System.currentTimeMillis(),
-                    note = "${account.name}: $note"
+            repository.insertAccount(
+                Account(
+                    name = name,
+                    balance = balance,
+                    detail = detail,
+                    phone = phone,
+                    lastUpdated = System.currentTimeMillis()
                 )
             )
         }
     }
 
+    fun updateAccountBalance(account: Account, changeAmount: Double) {
+        viewModelScope.launch {
+            val updated = account.copy(
+                balance = account.balance + changeAmount,
+                lastUpdated = System.currentTimeMillis()
+            )
+            repository.updateAccount(updated)
+        }
+    }
+
     fun updateAccountDetails(account: Account, newName: String, newDetail: String = "", newPhone: String = "") {
         viewModelScope.launch {
-            repository.updateAccount(account.copy(name = newName, detail = newDetail, phone = newPhone, lastUpdated = System.currentTimeMillis()))
+            val updated = account.copy(
+                name = newName,
+                detail = newDetail,
+                phone = newPhone,
+                lastUpdated = System.currentTimeMillis()
+            )
+            repository.updateAccount(updated)
         }
     }
 
@@ -69,9 +99,17 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // Expense operations
-    fun addExpense(title: String, category: String = "عام") {
+    fun addExpense(title: String, amount: Double, category: String = "عام", notes: String = "") {
         viewModelScope.launch {
-            repository.insertExpense(Expense(title = title, category = category))
+            repository.insertExpense(
+                Expense(
+                    title = title,
+                    amount = amount,
+                    category = category,
+                    notes = notes,
+                    date = System.currentTimeMillis()
+                )
+            )
         }
     }
 
@@ -81,10 +119,38 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Income operations
-    fun addIncome(title: String, category: String = "عام") {
+    fun updateExpenseAmount(expense: Expense, newAmount: Double) {
         viewModelScope.launch {
-            repository.insertIncome(Income(title = title, category = category))
+            val updated = expense.copy(
+                amount = newAmount
+            )
+            repository.updateExpense(updated)
+        }
+    }
+
+    fun updateExpenseDetails(expense: Expense, newAmount: Double, newDate: Long, newNotes: String = expense.notes) {
+        viewModelScope.launch {
+            val updated = expense.copy(
+                amount = newAmount,
+                date = newDate,
+                notes = newNotes
+            )
+            repository.updateExpense(updated)
+        }
+    }
+
+    // Income operations
+    fun addIncome(title: String, amount: Double, category: String = "عام", notes: String = "") {
+        viewModelScope.launch {
+            repository.insertIncome(
+                Income(
+                    title = title,
+                    amount = amount,
+                    category = category,
+                    notes = notes,
+                    date = System.currentTimeMillis()
+                )
+            )
         }
     }
 
@@ -94,31 +160,63 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Transaction operations
-    fun addTransaction(parentId: Int, parentType: String, amount: Double, date: Long, note: String = "") {
+    fun updateIncomeAmount(income: Income, newAmount: Double) {
         viewModelScope.launch {
-            repository.insertTransaction(FinanceTransaction(parentId = parentId, parentType = parentType, amount = amount, date = date, note = note))
+            val updated = income.copy(
+                amount = newAmount
+            )
+            repository.updateIncome(updated)
         }
     }
 
-    // دالة خاصة لسحب الأرباح (الخصومات الشخصية)
-    fun addWithdrawal(amount: Double, note: String, date: Long = System.currentTimeMillis()) {
+    fun updateIncomeDetails(income: Income, newAmount: Double, newDate: Long, newNotes: String = income.notes) {
         viewModelScope.launch {
-            repository.insertTransaction(
-                FinanceTransaction(
-                    parentId = 0, // 0 يعني سحب عام من الخزينة
-                    parentType = "WITHDRAWAL",
+            val updated = income.copy(
+                amount = newAmount,
+                date = newDate,
+                notes = newNotes
+            )
+            repository.updateIncome(updated)
+        }
+    }
+
+    // Safe Withdrawal operations
+    fun addSafeWithdrawal(amount: Double, date: Long, purpose: String, notes: String = "") {
+        viewModelScope.launch {
+            repository.insertWithdrawal(
+                SafeWithdrawal(
                     amount = amount,
                     date = date,
-                    note = note
+                    purpose = purpose,
+                    notes = notes
                 )
             )
         }
     }
 
-    fun deleteTransaction(transaction: FinanceTransaction) {
+    fun deleteSafeWithdrawal(withdrawal: SafeWithdrawal) {
         viewModelScope.launch {
-            repository.deleteTransaction(transaction)
+            repository.deleteWithdrawal(withdrawal)
+        }
+    }
+
+    fun deleteSafeWithdrawalById(id: Int) {
+        viewModelScope.launch {
+            repository.deleteWithdrawalById(id)
+        }
+    }
+
+    // Bulk restore database
+    fun restoreDatabase(
+        accounts: List<Account>,
+        expenses: List<Expense>,
+        incomes: List<Income>,
+        safeWithdrawals: List<SafeWithdrawal> = emptyList(),
+        onComplete: () -> Unit
+    ) {
+        viewModelScope.launch {
+            repository.restoreBackup(accounts, expenses, incomes, safeWithdrawals)
+            onComplete()
         }
     }
 }
