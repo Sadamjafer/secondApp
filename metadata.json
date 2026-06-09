@@ -1,0 +1,6 @@
+{
+  "name": "دفتر الحسابات",
+  "description": "تطبيق إدارة مالية متكامل لحساب الديون والمصروفات بوجهة مستوحاة من الدفاتر التقليدية المناسبة للأعمال والعلاقات التجارية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
